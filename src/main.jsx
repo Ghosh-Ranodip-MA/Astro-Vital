@@ -36,7 +36,16 @@ async function api(url, options = {}) {
     credentials: "include",
     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
   });
-  const payload = await response.json();
+  const responseText = await response.text();
+  let payload;
+  try {
+    payload = responseText ? JSON.parse(responseText) : null;
+  } catch {
+    throw new Error(`The API returned an invalid response (HTTP ${response.status}). Check that the backend is running.`);
+  }
+  if (payload === null) {
+    throw new Error(`The API returned an empty response (HTTP ${response.status}). Check that the backend is running.`);
+  }
   if (!response.ok) {
     const detail = payload.detail;
     throw new Error(typeof detail === "string" ? detail : detail?.message || payload.error?.message || "The request failed.");
@@ -324,7 +333,7 @@ function Login({ onLogin, working, toast }) {
       <div className="login-wrap">
         <section className="login-copy">
           <Brand />
-          <div className="eyebrow login-eyebrow">A connected care concept</div>
+          <div className="eyebrow login-eyebrow">NASA Space Apps 2026 · Astronaut health monitoring</div>
           <h1>Health, with a <span>clearer</span> line home.</h1>
           <p>One shared workspace for astronaut check-ins, health context and clinician follow-up — designed for when the signal is strong, and when it is not.</p>
           <div className="login-points"><span>Source-linked records and transparent demo rules</span><span>Ground medical review stays human-led</span><span>Queued states never pretend to be delivered</span></div>
@@ -350,7 +359,13 @@ function Metric({ label, value, unit, detail, icon }) {
 }
 
 function HeartRateChart({ observations = [] }) {
-  const points = observations.filter((item) => item.dataType === "heart_rate" && item.value != null);
+  const points = observations.filter((item) =>
+    item.dataType === "heart_rate"
+    && item.value != null
+    && item.unit?.trim() === "beats/min"
+    && item.quality?.trim().toLowerCase() === "valid"
+    && item.isSynthetic
+  );
   if (points.length < 2) return <div className="empty-state">Not enough synthetic history to draw a trend.</div>;
   const values = points.map((point) => Number(point.value));
   const width = 620, height = 190, pad = { left: 36, right: 12, top: 15, bottom: 26 };
@@ -362,11 +377,11 @@ function HeartRateChart({ observations = [] }) {
   const ticks = [Math.round(min / 10) * 10, Math.round((min + max) / 20) * 10, Math.round(max / 10) * 10];
   return (
     <>
-      <svg className="chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Synthetic heart-rate history; final two samples are demo-rule evidence">
+      <svg className="chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Synthetic heart-rate history; the six latest valid samples are used by the demo rule">
         <defs><linearGradient id="chartFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#4ed8c3" stopOpacity=".2" /><stop offset="1" stopColor="#4ed8c3" stopOpacity="0" /></linearGradient></defs>
         {ticks.map((tick) => <g key={tick}><line className="chart-grid" x1={pad.left} y1={y(tick)} x2={width - pad.right} y2={y(tick)} /><text className="chart-label" x="0" y={y(tick) + 3}>{tick}</text></g>)}
         <path className="chart-area" d={area} /><path className="chart-line" d={line} />
-        {values.map((value, index) => <circle key={points[index].id} className={`chart-point ${index >= values.length - 2 ? "flagged" : ""}`} cx={x(index)} cy={y(value)} r="4"><title>{points[index].id}: {value} {points[index].unit} · synthetic</title></circle>)}
+        {values.map((value, index) => <circle key={points[index].id} className={`chart-point ${index >= values.length - 6 ? "flagged" : ""}`} cx={x(index)} cy={y(value)} r="4"><title>{points[index].id}: {value} {points[index].unit} · synthetic</title></circle>)}
         <text className="chart-label" x={pad.left} y={height - 4}>Earlier</text><text className="chart-label" x={width - pad.right - 42} y={height - 4}>Latest</text>
       </svg>
       <div className="legend"><span className="legend-line" /> Synthetic heart rate <span className="pill amber">demo rule evidence</span></div>
@@ -394,7 +409,7 @@ function Overview({ user, data, cases, queue, onNewCheckIn, onOpenCases, onSelec
       </div>
       {user.role === "flight_surgeon" && (
         <section className="card analysis-control">
-          <div><h2>AI health analysis</h2><p>Deterministic, explainable demo rule · synthetic samples only · clinician review required</p></div>
+          <div><h2>Demo trend review</h2><p>Deterministic, explainable rule · valid synthetic samples only · clinician review required</p></div>
           <button className="btn primary" onClick={onAnalyze}>Run demo analysis</button>
         </section>
       )}
@@ -457,10 +472,10 @@ function CaseDetail({ item, onBack, onDisposition, onRecommend, working }) {
       <div>
         {item.checkIn && <section className="card"><div className="card-heading"><div><h2>Astronaut check-in</h2><p>Self-reported · {formatTime(item.checkIn.submittedAt)}</p></div><span className="pill teal">Synthetic</span></div><p><strong>Reported:</strong> {item.checkIn.symptoms.join(", ")}</p><p className="muted small">Severity {item.checkIn.severity}/5 · trend {item.checkIn.trend}{item.checkIn.description && <><br />{item.checkIn.description}</>}</p></section>}
         <section className="card"><div className="card-heading"><div><h2>Alert analysis</h2><p>Source-linked finding · demo-only rule version</p></div></div>
-          {item.alerts.length ? item.alerts.map((alert) => <div className="flag-box" key={alert.id}><span className={`pill ${alert.status === "new" ? "amber" : "teal"}`}>{titleCase(alert.status)}</span><h3>{alert.title}</h3><p>{alert.explanation}</p><div className="rule-meta"><span>{alert.ruleVersion}</span><span>{alert.evidenceIds.length} evidence IDs: {alert.evidenceIds.join(", ")}</span></div>{alert.dispositionReason && <p className="disposition-reason"><strong>Disposition:</strong> {alert.dispositionReason}</p>}{alert.status === "new" && <div className="case-actions"><button disabled={working} className="btn primary" onClick={() => onDisposition(alert, "acknowledged")}>Acknowledge</button><button disabled={working} className="btn subtle" onClick={() => onDisposition(alert, "dismissed")}>Dismiss</button><button disabled={working} className="btn subtle" onClick={() => onDisposition(alert, "escalated")}>Escalate</button></div>}<div className="disclaimer">Review priority indicates a workflow state only. It is not a diagnosis.</div></div>) : <div className="empty-state">No alerts linked to this case.</div>}
+          {item.alerts.length ? item.alerts.map((alert) => <div className="flag-box" key={alert.id}><span className={`pill ${alert.status === "new" ? "amber" : "teal"}`}>{titleCase(alert.status)}</span><h3>{alert.title}</h3><p>{alert.explanation}</p><div className="rule-meta"><span>{alert.ruleVersion}</span><span>Jump to evidence: {alert.evidenceIds.map((id, index) => <React.Fragment key={id}>{index > 0 ? ", " : ""}<a href={`#observation-${id}`}>{id}</a></React.Fragment>)}</span></div>{alert.dispositionReason && <p className="disposition-reason"><strong>Disposition:</strong> {alert.dispositionReason}</p>}{alert.status === "new" && <div className="case-actions"><button disabled={working} className="btn primary" onClick={() => onDisposition(alert, "acknowledged")}>Acknowledge</button><button disabled={working} className="btn subtle" onClick={() => onDisposition(alert, "dismissed")}>Dismiss</button><button disabled={working} className="btn subtle" onClick={() => onDisposition(alert, "escalated")}>Escalate</button></div>}<div className="disclaimer">Review priority indicates a workflow state only. It is not a diagnosis.</div></div>) : <div className="empty-state">No alerts linked to this case.</div>}
         </section>
         <section className="card"><div className="card-heading"><div><h2>Evidence and source records</h2><p>All values below are synthetic demo records</p></div><span className="pill teal">{item.observations.length} records</span></div>
-          <div className="table-wrap"><table><thead><tr><th>Observation</th><th>Value</th><th>Observed</th><th>Source / quality</th></tr></thead><tbody>{item.observations.map((observation) => <tr key={observation.id}><td><strong>{titleCase(observation.dataType)}</strong><br /><span className="muted small">{observation.id}</span></td><td>{observation.value} {observation.unit}</td><td>{formatTime(observation.observedAt)}</td><td>{observation.source}<br /><span className="muted">{titleCase(observation.quality)} · {observation.isSynthetic ? "Synthetic" : "Imported"}</span></td></tr>)}</tbody></table></div>
+          <div className="table-wrap"><table><thead><tr><th>Observation</th><th>Value</th><th>Observed</th><th>Source / quality</th></tr></thead><tbody>{item.observations.map((observation) => <tr id={`observation-${observation.id}`} className={item.alerts.some((alert) => alert.evidenceIds.includes(observation.id)) ? "evidence-row" : ""} key={observation.id}><td><strong>{titleCase(observation.dataType)}</strong><br /><span className="muted small">{observation.id}</span></td><td>{observation.value} {observation.unit}</td><td>{formatTime(observation.observedAt)}</td><td>{observation.source}<br /><span className="muted">{titleCase(observation.quality)} · {observation.isSynthetic ? "Synthetic" : "Imported"}</span></td></tr>)}</tbody></table></div>
         </section>
       </div>
       <div>

@@ -6,9 +6,20 @@ RULE_VERSION = "demo-trend-v1"
 
 
 def evaluate_trend(observations: Sequence[Observation]) -> dict | None:
-    """Return a source-linked demo flag; this is not a clinical threshold."""
+    """Return a source-linked demo flag from eligible synthetic records only.
+
+    The rule is intentionally limited to records with a known canonical unit and
+    a valid quality status. It is a workflow demonstration, not clinical logic.
+    """
     readings = sorted(
-        (item for item in observations if item.data_type == "heart_rate" and item.value_numeric is not None),
+        (
+            item for item in observations
+            if item.data_type == "heart_rate"
+            and item.value_numeric is not None
+            and item.unit.strip() == "beats/min"
+            and item.quality_status.strip().lower() == "valid"
+            and item.is_synthetic
+        ),
         key=lambda item: item.observed_at,
     )
     if len(readings) < 6:

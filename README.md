@@ -2,9 +2,13 @@
 
 ASTROVITAL X is a synthetic-data prototype for the astronaut-to-clinician workflow. The app combines a React portal, a FastAPI API, SQLAlchemy persistence, a deterministic source-linked analysis rule, clinician-authored follow-up and astronaut acknowledgement/response.
 
+**2026 NASA Space Apps challenge:** [Create Health Monitoring Software for Astronauts on Space Missions](https://www.spaceappschallenge.org/2026/challenges/health-monitoring-software/). The prototype addresses the challenge through a crew-facing health snapshot and self-report flow, source-linked trend review, and a human-led clinician follow-up loop. It does not use or claim access to NASA operational health data; all health observations are synthetic.
+
 > **Scope and safety:** This is a local hackathon demo, not a medical device or emergency service. All health values and accounts are synthetic. The demo rule is not a medical threshold, diagnosis, or validated prediction. It does not measure vital signs or connect to a spacecraft, NASA, or external medical systems. Never enter real health information.
 
 ## Architecture
+
+For the NASA Space Apps reviewer assessment, criterion-by-criterion findings, and a short presentation script, see [the project review](docs/ASTROVITAL_X/SPACE_APPS_REVIEW.md).
 
 ```text
 React astronaut / doctor dashboards
@@ -76,7 +80,8 @@ The passwordless role selector is a local demonstration identity mechanism, not 
 - React astronaut dashboard with profile, time-series chart, source/unit/time/quality metadata, and symptom check-in.
 - FastAPI endpoints with role checks and explicit astronaut-to-clinician assignment enforcement.
 - PostgreSQL-compatible normalized SQLAlchemy model for users, profile, observations, check-ins, cases, alerts, recommendations, follow-up responses and audit events.
-- Deterministic `demo-trend-v1` analysis with source observation IDs, version and non-diagnostic caveats.
+- Deterministic `demo-trend-v1` trend review limited to valid, synthetic heart-rate records in `beats/min`, with source observation IDs, rule version and non-diagnostic caveats. This is not AI or a clinical threshold.
+- Alert evidence links jump to and highlight the corresponding source observations in the case record.
 - Clinician case queue, alert disposition (reason required to dismiss/escalate), authored recommendation, and follow-up lifecycle.
 - Astronaut acknowledgement and follow-up response.
 - Local offline queue with explicit un-delivered state and duplicate-safe synchronization.

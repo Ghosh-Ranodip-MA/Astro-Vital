@@ -130,7 +130,10 @@ button:disabled { cursor: wait; opacity: .58; }
 table { width: 100%; border-collapse: collapse; min-width: 540px; }
 th { text-align: left; color: #78909e; text-transform: uppercase; letter-spacing: .1em; font-size: 9px; font-weight: 600; padding: 0 10px 10px; }
 td { padding: 11px 10px; border-top: 1px solid #1b3648; color: #c8d5dc; font-size: 10px; }
+tr.evidence-row { background: rgba(78, 216, 195, .08); }
+tr[id^="observation-"] { scroll-margin-top: 90px; }
 td strong { color: var(--text); font-weight: 600; }
+.rule-meta a { color: #71dfd0; text-decoration: underline; text-underline-offset: 2px; }
 .flag-box { border: 1px solid #54432f; background: #211e1a; padding: 15px; border-radius: 10px; }
 .flag-box h3 { color: #ffd18f; font-size: 13px; margin: 11px 0 8px; }
 .flag-box p { color: #b9aa96; font-size: 10px; line-height: 1.65; }
